@@ -42,7 +42,10 @@ export interface Alert {
 export interface ScrapeResult {
   price: number;
   name: string;
+  productName?: string;
+  currency?: string;
   method: string;
   success: boolean;
   error?: string;
+  inStock?: boolean;
 }
