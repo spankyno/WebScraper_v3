@@ -26,161 +26,241 @@ const supabaseAdmin = createClient(
 
 // --- Scraping Engines ---
 
-async function fetchParser(url: string): Promise<{ price: number; name: string } | null> {
+function parsePrice(raw: string): number | null {
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[€$£¥\s]/g, '')
+    .replace(/\.(?=\d{3})/g, '')
+    .replace(',', '.')
+    .trim();
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
+}
+
+async function fetchParser(url: string, selector?: string): Promise<any> {
+  const t0 = Date.now();
   try {
-    const response = await fetch(url, {
+    const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(10000),
     });
-    const html = await response.text();
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const html = await res.text();
     const $ = cheerio.load(html);
 
-    // Heuristics for price
-    let priceText = '';
-    
-    // Common price selectors
-    const priceSelectors = [
-      '[class*="price"]', '[id*="price"]', '.a-price-whole', '.product-price',
-      'meta[property="product:price:amount"]', 'meta[name="twitter:data1"]'
-    ];
+    let priceRaw = '';
+    if (selector) {
+      priceRaw = $(selector).first().text() || $(selector).first().attr('content') || $(selector).first().attr('data-price') || '';
+    }
 
-    for (const selector of priceSelectors) {
-      const el = $(selector);
-      if (el.length) {
-        if (selector.startsWith('meta')) {
-          priceText = el.attr('content') || '';
-        } else {
-          priceText = el.first().text();
+    if (!priceRaw) {
+      const priceSelectors = ['[itemprop="price"]', '[class*="price"]:not([class*="was"])', '.a-price-whole', 'meta[property="product:price:amount"]'];
+      for (const sel of priceSelectors) {
+        const el = $(sel).first();
+        if (el.length) {
+          priceRaw = el.attr('content') ?? el.attr('data-price') ?? el.text();
+          if (priceRaw) break;
         }
-        if (priceText) break;
       }
     }
 
-    const name = $('title').text().split('|')[0].trim() || $('h1').first().text().trim();
-    const price = parseFloat(priceText.replace(/[^0-9.,]/g, '').replace(',', '.'));
+    const price = parsePrice(priceRaw);
+    const productName = $('h1[itemprop="name"]').first().text().trim() || $('#productTitle').text().trim() || $('h1').first().text().trim() || $('title').text().trim();
+    
+    const bodyText = $('body').text().toLowerCase();
+    const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock') && !bodyText.includes('no disponible');
 
-    if (!isNaN(price)) return { price, name };
-    return null;
-  } catch (e) {
-    console.error('fetchParser error:', e);
-    return null;
+    return {
+      success: true,
+      url,
+      method: 'fetch-light',
+      price,
+      productName,
+      inStock,
+      durationMs: Date.now() - t0
+    };
+  } catch (e: any) {
+    return { success: false, error: e.message, method: 'fetch-light' };
   }
 }
 
-async function browserlessScraper(url: string): Promise<{ price: number; name: string } | null> {
+async function browserlessScraper(url: string, selector?: string): Promise<any> {
+  const t0 = Date.now();
   const apiKey = process.env.BROWSERLESS_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) throw new Error('BROWSERLESS_API_KEY missing');
+
+  const BROWSER_FN = `
+    export default async function({ page, context }) {
+      const { url, selector } = context;
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      
+      const priceSelectors = [selector, '[itemprop="price"]', 'meta[property="product:price:amount"]', '.a-price-whole', '[class*="price"]:not([class*="was"])'].filter(Boolean);
+      let priceText = '';
+      for (const sel of priceSelectors) {
+        try {
+          const el = await page.$(sel);
+          if (!el) continue;
+          priceText = await page.evaluate(el => el.getAttribute('content') ?? el.getAttribute('data-price') ?? el.innerText, el);
+          if (priceText) break;
+        } catch {}
+      }
+
+      const productName = await page.$eval('h1[itemprop="name"], #productTitle, h1', el => el.innerText.trim()).catch(() => '');
+      const bodyText = await page.evaluate(() => document.body.innerText.toLowerCase());
+      const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock');
+
+      return { priceText, productName, inStock };
+    }
+  `;
 
   try {
-    const response = await fetch(`https://chrome.browserless.io/content?token=${apiKey}`, {
+    const res = await fetch(`https://production-sfo.browserless.io/chrome/function?token=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        url,
-        waitFor: 3000,
-        stealth: true
-      })
+        code: BROWSER_FN,
+        context: { url, selector }
+      }),
+      signal: AbortSignal.timeout(25000)
     });
-    const html = await response.text();
-    const $ = cheerio.load(html);
 
-    // Similar heuristics as fetchParser but on rendered HTML
-    let priceText = '';
-    const priceSelectors = ['.a-price-whole', '.price', '[class*="price"]', '.current-price'];
-    for (const selector of priceSelectors) {
-      const el = $(selector);
-      if (el.length) {
-        priceText = el.first().text();
-        if (priceText) break;
-      }
-    }
+    if (!res.ok) throw new Error(`Browserless ${res.status}`);
+    const json: any = await res.json();
+    const data = json?.data ?? json;
 
-    const name = $('h1').first().text().trim() || $('title').text().trim();
-    const price = parseFloat(priceText.replace(/[^0-9.,]/g, '').replace(',', '.'));
-
-    if (!isNaN(price)) return { price, name };
-    return null;
-  } catch (e) {
-    console.error('browserless error:', e);
-    return null;
+    return {
+      success: true,
+      url,
+      method: 'browserless',
+      price: parsePrice(data.priceText),
+      productName: data.productName,
+      inStock: data.inStock,
+      durationMs: Date.now() - t0
+    };
+  } catch (e: any) {
+    return { success: false, error: e.message, method: 'browserless' };
   }
 }
 
-async function geminiScraper(url: string): Promise<{ price: number; name: string } | null> {
+async function geminiScraper(url: string, instruction?: string): Promise<any> {
+  const t0 = Date.now();
   const apiKey = process.env.GEMINI_API_KEY;
   const browserlessKey = process.env.BROWSERLESS_API_KEY;
-  if (!apiKey || !browserlessKey) return null;
+  if (!apiKey || !browserlessKey) throw new Error('Keys missing');
 
   try {
-    // Get screenshot via browserless
     const screenshotRes = await fetch(`https://chrome.browserless.io/screenshot?token=${browserlessKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url,
-        options: { fullPage: false, type: 'jpeg', quality: 80 }
+        options: { fullPage: false, type: 'jpeg', quality: 80 },
+        gotoOptions: { waitUntil: 'networkidle2', timeout: 25000 }
       })
     });
+    
+    if (!screenshotRes.ok) throw new Error('Screenshot failed');
     const buffer = await screenshotRes.arrayBuffer();
     const base64Image = Buffer.from(buffer).toString('base64');
 
-    const genAI = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey });
     
-    const prompt = "Analyze this screenshot of a product page. Extract the product name and its current price. Return ONLY a JSON object like {\"name\": \"...\", \"price\": 123.45}. If you can't find it, return null.";
+    const prompt = instruction || `
+      Analiza esta página web de producto y extrae en formato JSON estricto:
+      {
+        "productName": "nombre completo del producto",
+        "price": número decimal (solo el número, sin símbolo de moneda),
+        "currency": "EUR" | "USD" | "GBP",
+        "inStock": true | false
+      }
+      Responde SOLO con el JSON, sin explicaciones ni markdown.
+    `;
     
-    const result = await genAI.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-flash-latest',
-      contents: [{
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              data: base64Image,
-              mimeType: 'image/jpeg'
-            }
-          }
-        ]
-      }]
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: base64Image,
+          },
+        },
+      ],
     });
 
-    const text = result.text;
-    const jsonMatch = text.match(/\{.*\}/s);
-    if (jsonMatch) {
-      const data = JSON.parse(jsonMatch[0]);
-      if (data && data.price) return data;
-    }
-    return null;
-  } catch (e) {
-    console.error('geminiScraper error:', e);
-    return null;
+    const text = response.text.trim().replace(/```json\n?|```/g, '');
+    const parsed = JSON.parse(text);
+
+    return {
+      success: true,
+      url,
+      method: 'gemini',
+      price: parsed.price,
+      productName: parsed.productName,
+      inStock: parsed.inStock,
+      currency: parsed.currency || 'EUR',
+      durationMs: Date.now() - t0
+    };
+  } catch (e: any) {
+    return { success: false, error: e.message, method: 'gemini' };
   }
 }
 
-async function hybridScraper(url: string) {
-  let result = await fetchParser(url);
-  if (result) return { ...result, method: 'fetch' };
+async function hybridScraper(url: string, selector?: string, instruction?: string) {
+  const errors: string[] = [];
 
-  result = await browserlessScraper(url);
-  if (result) return { ...result, method: 'browserless' };
+  // 1. Fetch Light
+  const f = await fetchParser(url, selector);
+  if (f.success && f.price !== null) return f;
+  errors.push(`fetch: ${f.error || 'no price'}`);
 
-  result = await geminiScraper(url);
-  if (result) return { ...result, method: 'gemini' };
+  // 2. Browserless
+  const b = await browserlessScraper(url, selector);
+  if (b.success && b.price !== null) return b;
+  errors.push(`browserless: ${b.error || 'no price'}`);
 
-  return null;
+  // 3. Gemini
+  const g = await geminiScraper(url, instruction);
+  if (g.success && g.price !== null) return g;
+  errors.push(`gemini: ${g.error || 'no price'}`);
+
+  return { success: false, error: errors.join(' | '), method: 'hybrid' };
+}
+
+function suggestMethod(url: string): string {
+  const u = url.toLowerCase();
+  const jsRequired = ['amazon.', 'zara.com', 'mango.com', 'zalando.', 'mediamarkt.', 'pccomponentes.', 'elcorteingles.'];
+  return jsRequired.some(d => u.includes(d)) ? 'browserless' : 'fetch-light';
 }
 
 // --- API Routes ---
 
 app.post('/api/scrape', async (req, res) => {
-  const { url } = req.body;
+  const { url, method, selector, instruction } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
-  const result = await hybridScraper(url);
-  if (result) {
-    res.json(result);
-  } else {
-    res.status(500).json({ error: 'Failed to scrape price' });
+  try {
+    let result;
+    switch (method) {
+      case 'fetch-light': result = await fetchParser(url, selector); break;
+      case 'browserless': result = await browserlessScraper(url, selector); break;
+      case 'gemini': result = await geminiScraper(url, instruction); break;
+      default: result = await hybridScraper(url, selector, instruction);
+    }
+
+    if (result.success) {
+      res.json({ ...result, suggestedMethod: suggestMethod(url) });
+    } else {
+      res.status(422).json({ error: result.error || 'Extraction failed' });
+    }
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
