@@ -1,0 +1,6 @@
+{
+  "name": "WebScraper v3",
+  "description": "Advanced product price scraper and monitor with multiple engines (Fetch, Browserless, Gemini AI) and Telegram alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
