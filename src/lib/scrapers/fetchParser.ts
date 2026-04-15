@@ -28,12 +28,42 @@ export async function fetchParser(url: string, selector?: string) {
     const $ = cheerio.load(html);
 
     let priceRaw = '';
-    if (selector) {
+    let productName = '';
+
+    // 1. Try JSON-LD (most reliable for retailers)
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const json = JSON.parse($(el).html() || '');
+        const items = Array.isArray(json) ? json : [json];
+        for (const item of items) {
+          // Handle Product or WebPage with mainEntity Product
+          const product = item['@type'] === 'Product' ? item : (item.mainEntity?.['@type'] === 'Product' ? item.mainEntity : null);
+          if (product) {
+            if (!productName) productName = product.name;
+            const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
+            if (offers && offers.price) {
+              priceRaw = offers.price.toString();
+              return false; // break each
+            }
+          }
+        }
+      } catch (e) {}
+    });
+
+    if (!priceRaw && selector) {
       priceRaw = $(selector).first().text() || $(selector).first().attr('content') || $(selector).first().attr('data-price') || '';
     }
 
     if (!priceRaw) {
-      const priceSelectors = ['[itemprop="price"]', '[class*="price"]:not([class*="was"])', '.a-price-whole', 'meta[property="product:price:amount"]'];
+      const priceSelectors = [
+        '[itemprop="price"]', 
+        'meta[property="product:price:amount"]',
+        'meta[name="twitter:data1"]',
+        '.price',
+        '.current-price',
+        '[class*="price"]:not([class*="was"]):not([class*="old"])',
+        '.a-price-whole'
+      ];
       for (const sel of priceSelectors) {
         const el = $(sel).first();
         if (el.length) {
@@ -44,7 +74,12 @@ export async function fetchParser(url: string, selector?: string) {
     }
 
     const price = parsePrice(priceRaw);
-    const productName = $('h1[itemprop="name"]').first().text().trim() || $('#productTitle').text().trim() || $('h1').first().text().trim() || $('title').text().trim();
+    if (!productName) {
+      productName = $('h1[itemprop="name"]').first().text().trim() || 
+                    $('#productTitle').text().trim() || 
+                    $('h1').first().text().trim() || 
+                    $('title').text().trim();
+    }
     
     const bodyText = $('body').text().toLowerCase();
     const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock') && !bodyText.includes('no disponible');

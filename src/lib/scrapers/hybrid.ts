@@ -41,6 +41,10 @@ export async function hybridScraper(url: string, selector?: string, instruction?
 
 export function suggestMethod(url: string): string {
   const u = url.toLowerCase();
-  const jsRequired = ['amazon.', 'zara.com', 'mango.com', 'zalando.', 'mediamarkt.', 'pccomponentes.', 'elcorteingles.'];
+  const jsRequired = [
+    'amazon.', 'zara.com', 'mango.com', 'zalando.', 
+    'mediamarkt.', 'pccomponentes.', 'elcorteingles.',
+    'carrefour.es', 'alcampo.es', 'primor.eu'
+  ];
   return jsRequired.some(d => u.includes(d)) ? 'browserless' : 'fetch-light';
 }
