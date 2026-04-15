@@ -96,46 +96,80 @@ async function fetchParser(url: string, selector?: string): Promise<any> {
 async function browserlessScraper(url: string, selector?: string): Promise<any> {
   const t0 = Date.now();
   const apiKey = process.env.BROWSERLESS_API_KEY;
-  if (!apiKey) throw new Error('BROWSERLESS_API_KEY missing');
+  if (!apiKey) {
+    console.error('[Browserless] API Key missing');
+    return { success: false, error: 'BROWSERLESS_API_KEY missing', method: 'browserless' };
+  }
 
   const BROWSER_FN = `
     export default async function({ page, context }) {
-      const { url, selector } = context;
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-      
-      const priceSelectors = [selector, '[itemprop="price"]', 'meta[property="product:price:amount"]', '.a-price-whole', '[class*="price"]:not([class*="was"])'].filter(Boolean);
-      let priceText = '';
-      for (const sel of priceSelectors) {
-        try {
-          const el = await page.$(sel);
-          if (!el) continue;
-          priceText = await page.evaluate(el => el.getAttribute('content') ?? el.getAttribute('data-price') ?? el.innerText, el);
-          if (priceText) break;
-        } catch {}
+      try {
+        const { url, selector } = context;
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+        
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 });
+        
+        const priceSelectors = [
+          selector, 
+          '[itemprop="price"]', 
+          'meta[property="product:price:amount"]', 
+          '.a-price-whole', 
+          '[class*="price"]:not([class*="was"]):not([class*="old"])',
+          '.current-price',
+          '#priceblock_ourprice',
+          '#priceblock_dealprice'
+        ].filter(Boolean);
+
+        let priceText = '';
+        for (const sel of priceSelectors) {
+          try {
+            const el = await page.$(sel);
+            if (!el) continue;
+            priceText = await page.evaluate(el => el.getAttribute('content') ?? el.getAttribute('data-price') ?? el.innerText, el);
+            if (priceText && priceText.trim()) {
+              priceText = priceText.trim();
+              break;
+            }
+          } catch {}
+        }
+
+        const productName = await page.$eval('h1[itemprop="name"], #productTitle, h1', el => el.innerText.trim()).catch(() => '');
+        const bodyText = await page.evaluate(() => document.body.innerText.toLowerCase());
+        const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock') && !bodyText.includes('no disponible');
+
+        return { success: true, priceText, productName, inStock };
+      } catch (e) {
+        return { success: false, error: e.message };
       }
-
-      const productName = await page.$eval('h1[itemprop="name"], #productTitle, h1', el => el.innerText.trim()).catch(() => '');
-      const bodyText = await page.evaluate(() => document.body.innerText.toLowerCase());
-      const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock');
-
-      return { priceText, productName, inStock };
     }
   `;
 
   try {
-    const res = await fetch(`https://production-sfo.browserless.io/chrome/function?token=${apiKey}`, {
+    console.log(`[Browserless] Requesting URL: ${url}`);
+    const res = await fetch(`https://chrome.browserless.io/chrome/function?token=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code: BROWSER_FN,
         context: { url, selector }
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(30000)
     });
 
-    if (!res.ok) throw new Error(`Browserless ${res.status}`);
+    const contentType = res.headers.get('content-type');
+    if (!res.ok || !contentType?.includes('application/json')) {
+      const text = await res.text();
+      console.error(`[Browserless] Error Response (${res.status}):`, text.slice(0, 200));
+      throw new Error(`Browserless error ${res.status}: ${text.slice(0, 100)}`);
+    }
+
     const json: any = await res.json();
     const data = json?.data ?? json;
+
+    if (data.error) {
+      console.error(`[Browserless] Function Error:`, data.error);
+      throw new Error(data.error);
+    }
 
     return {
       success: true,
@@ -147,6 +181,7 @@ async function browserlessScraper(url: string, selector?: string): Promise<any> 
       durationMs: Date.now() - t0
     };
   } catch (e: any) {
+    console.error(`[Browserless] Fatal Error:`, e.message);
     return { success: false, error: e.message, method: 'browserless' };
   }
 }
@@ -155,9 +190,13 @@ async function geminiScraper(url: string, instruction?: string): Promise<any> {
   const t0 = Date.now();
   const apiKey = process.env.GEMINI_API_KEY;
   const browserlessKey = process.env.BROWSERLESS_API_KEY;
-  if (!apiKey || !browserlessKey) throw new Error('Keys missing');
+  if (!apiKey || !browserlessKey) {
+    console.error('[Gemini] Keys missing');
+    return { success: false, error: 'Keys missing', method: 'gemini' };
+  }
 
   try {
+    console.log(`[Gemini] Taking screenshot for: ${url}`);
     const screenshotRes = await fetch(`https://chrome.browserless.io/screenshot?token=${browserlessKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -168,7 +207,11 @@ async function geminiScraper(url: string, instruction?: string): Promise<any> {
       })
     });
     
-    if (!screenshotRes.ok) throw new Error('Screenshot failed');
+    if (!screenshotRes.ok) {
+      const text = await screenshotRes.text();
+      console.error(`[Gemini] Screenshot failed (${screenshotRes.status}):`, text.slice(0, 100));
+      throw new Error('Screenshot failed');
+    }
     const buffer = await screenshotRes.arrayBuffer();
     const base64Image = Buffer.from(buffer).toString('base64');
 
@@ -185,6 +228,7 @@ async function geminiScraper(url: string, instruction?: string): Promise<any> {
       Responde SOLO con el JSON, sin explicaciones ni markdown.
     `;
     
+    console.log(`[Gemini] Calling Gemini API...`);
     const response = await ai.models.generateContent({
       model: 'gemini-flash-latest',
       contents: [
@@ -199,6 +243,7 @@ async function geminiScraper(url: string, instruction?: string): Promise<any> {
     });
 
     const text = response.text.trim().replace(/```json\n?|```/g, '');
+    console.log(`[Gemini] Response text:`, text.slice(0, 100));
     const parsed = JSON.parse(text);
 
     return {
@@ -212,6 +257,7 @@ async function geminiScraper(url: string, instruction?: string): Promise<any> {
       durationMs: Date.now() - t0
     };
   } catch (e: any) {
+    console.error(`[Gemini] Fatal Error:`, e.message);
     return { success: false, error: e.message, method: 'gemini' };
   }
 }
