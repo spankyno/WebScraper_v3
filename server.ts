@@ -3,7 +3,6 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as cheerio from 'cheerio';
-import fetch from 'node-fetch';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
@@ -17,6 +16,11 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
 
 // Supabase Admin Client for Cron
 const supabaseAdmin = createClient(
@@ -242,6 +246,7 @@ function suggestMethod(url: string): string {
 // --- API Routes ---
 
 app.post('/api/scrape', async (req, res) => {
+  console.log(`[API] Scrape request received for URL: ${req.body.url}`);
   const { url, method, selector, instruction } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
