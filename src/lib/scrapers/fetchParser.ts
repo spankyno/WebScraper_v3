@@ -74,13 +74,41 @@ export async function fetchParser(url: string, selector?: string) {
     }
 
     const price = parsePrice(priceRaw);
+    
+    // 2. Try NEXT_DATA or INITIAL_STATE if price still missing
+    let finalPrice = price;
+    if (finalPrice === null) {
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+      if (nextDataMatch) {
+        try {
+          const json = JSON.parse(nextDataMatch[1]);
+          const p = json?.props?.pageProps?.product?.price || 
+                    json?.props?.pageProps?.initialData?.product?.price ||
+                    json?.props?.pageProps?.productData?.price ||
+                    json?.props?.pageProps?.data?.product?.price?.unitPrice;
+          if (p) finalPrice = parsePrice(p);
+        } catch {}
+      }
+    }
+
+    if (finalPrice === null) {
+      const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});/);
+      if (stateMatch) {
+        try {
+          const json = JSON.parse(stateMatch[1]);
+          const p = json?.product?.price || json?.product?.currentPrice || json?.details?.price;
+          if (p) finalPrice = parsePrice(p);
+        } catch {}
+      }
+    }
+
     if (!productName) {
       productName = $('h1[itemprop="name"]').first().text().trim() || 
                     $('#productTitle').text().trim() || 
                     $('h1').first().text().trim() || 
                     $('title').text().trim();
     }
-    
+
     const bodyText = $('body').text().toLowerCase();
     const inStock = !bodyText.includes('agotado') && !bodyText.includes('out of stock') && !bodyText.includes('no disponible');
 
@@ -88,7 +116,7 @@ export async function fetchParser(url: string, selector?: string) {
       success: true,
       url,
       method: 'fetch-light',
-      price,
+      price: finalPrice,
       productName,
       inStock,
       durationMs: Date.now() - t0
