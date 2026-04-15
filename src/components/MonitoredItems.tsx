@@ -108,11 +108,16 @@ export default function MonitoredItems({ session }: { session: any }) {
 
     setUpdating(true);
     try {
+      const nextCheckDate = new Date();
+      const hours = parseInt(editFrequency);
+      nextCheckDate.setHours(nextCheckDate.getHours() + hours);
+
       const { error } = await supabase
         .from('monitored_items')
         .update({
           target_price: price,
-          frequency: editFrequency
+          frequency: editFrequency,
+          next_check: nextCheckDate.toISOString()
         })
         .eq('id', id);
 
