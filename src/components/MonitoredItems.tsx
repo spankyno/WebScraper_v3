@@ -64,31 +64,22 @@ export default function MonitoredItems({ session }: { session: any }) {
   const handleRecheck = async (item: MonitoredItem) => {
     setRechecking(item.id);
     try {
-      const response = await fetch('/api/scrape', {
+      const response = await fetch('/api/recheck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: item.url })
+        body: JSON.stringify({ itemId: item.id })
       });
       
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to recheck');
 
-      const { error } = await supabase.from('monitored_items').update({
-        current_price: data.price,
-        previous_price: item.current_price,
-        last_check: new Date().toISOString()
-      }).eq('id', item.id);
-
-      if (error) throw error;
+      if (data.alertSent) {
+        toast.success('Price updated and alert sent!');
+      } else {
+        toast.success('Price updated!');
+      }
       
-      // Record history
-      await supabase.from('price_history').insert({
-        item_id: item.id,
-        price: data.price,
-        method: data.method
-      });
-
-      toast.success('Price updated!');
+      fetchItems(); // Refresh UI
     } catch (error: any) {
       toast.error(error.message || 'Recheck failed');
     } finally {
