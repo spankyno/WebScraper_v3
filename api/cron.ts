@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { hybridScraper } from '../src/lib/scrapers/hybrid';
+import { hybridScraper } from '../src/lib/scrapers/hybrid.js';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL || '',

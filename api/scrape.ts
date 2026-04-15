@@ -1,7 +1,7 @@
-import { fetchParser } from '../src/lib/scrapers/fetchParser';
-import { browserlessScraper } from '../src/lib/scrapers/browserless';
-import { geminiScraper } from '../src/lib/scrapers/gemini';
-import { hybridScraper, suggestMethod } from '../src/lib/scrapers/hybrid';
+import { fetchParser } from '../src/lib/scrapers/fetchParser.js';
+import { browserlessScraper } from '../src/lib/scrapers/browserless.js';
+import { geminiScraper } from '../src/lib/scrapers/gemini.js';
+import { hybridScraper, suggestMethod } from '../src/lib/scrapers/hybrid.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
