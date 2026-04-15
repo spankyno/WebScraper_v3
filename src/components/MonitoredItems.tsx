@@ -5,14 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { RefreshCw, Trash2, ExternalLink, TrendingDown, TrendingUp, Minus, Loader2 } from 'lucide-react';
+import { RefreshCw, Trash2, ExternalLink, TrendingDown, TrendingUp, Minus, Loader2, Pencil, Check, X } from 'lucide-react';
 import { MonitoredItem } from '../types';
 import { formatDistanceToNow } from 'date-fns';
+import { Input } from '@/components/ui/input';
 
 export default function MonitoredItems({ session }: { session: any }) {
   const [items, setItems] = useState<MonitoredItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [rechecking, setRechecking] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTargetPrice, setEditTargetPrice] = useState('');
+  const [editFrequency, setEditFrequency] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -91,6 +96,39 @@ export default function MonitoredItems({ session }: { session: any }) {
     }
   };
 
+  const startEditing = (item: MonitoredItem) => {
+    setEditingId(item.id);
+    setEditTargetPrice(item.target_price.toString());
+    setEditFrequency(item.frequency);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditTargetPrice('');
+    setEditFrequency('');
+  };
+
+  const handleUpdate = async (id: string) => {
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('monitored_items')
+        .update({
+          target_price: parseFloat(editTargetPrice),
+          frequency: editFrequency
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Item updated successfully');
+      setEditingId(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update item');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -141,9 +179,34 @@ export default function MonitoredItems({ session }: { session: any }) {
                         {item.current_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                       </TableCell>
                       <TableCell>
-                        <span className="text-[10px] font-bold text-[#8B949E] bg-[#0F1115] border border-[#2D333B] px-2 py-1 rounded">
-                          OBJ: {item.target_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                        </span>
+                        {editingId === item.id ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B949E]">€</span>
+                              <Input 
+                                type="number" 
+                                value={editTargetPrice} 
+                                onChange={(e) => setEditTargetPrice(e.target.value)}
+                                className="h-7 w-20 pl-5 text-[10px] bg-[#0F1115] border-[#2D333B]"
+                              />
+                            </div>
+                            <select
+                              value={editFrequency}
+                              onChange={(e) => setEditFrequency(e.target.value)}
+                              className="h-7 w-20 bg-[#0F1115] border border-[#2D333B] rounded px-1 text-[10px] text-white focus:outline-none"
+                            >
+                              <option value="1h">1h</option>
+                              <option value="6h">6h</option>
+                              <option value="24h">24h</option>
+                              <option value="72h">72h</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[#8B949E] bg-[#0F1115] border border-[#2D333B] px-2 py-1 rounded">
+                            OBJ: {item.target_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                            <span className="ml-1 opacity-50">({item.frequency})</span>
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {diff < 0 ? (
@@ -159,23 +222,55 @@ export default function MonitoredItems({ session }: { session: any }) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleRecheck(item)}
-                            disabled={rechecking === item.id}
-                            className="h-8 w-8 text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#2D333B]"
-                          >
-                            <RefreshCw className={`h-3.5 w-3.5 ${rechecking === item.id ? 'animate-spin' : ''}`} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleDelete(item.id)}
-                            className="h-8 w-8 text-[#8B949E] hover:text-red-500 hover:bg-red-500/10"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {editingId === item.id ? (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleUpdate(item.id)}
+                                disabled={updating}
+                                className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                              >
+                                {updating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={cancelEditing}
+                                className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => startEditing(item)}
+                                className="h-8 w-8 text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#2D333B]"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleRecheck(item)}
+                                disabled={rechecking === item.id}
+                                className="h-8 w-8 text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#2D333B]"
+                              >
+                                <RefreshCw className={`h-3.5 w-3.5 ${rechecking === item.id ? 'animate-spin' : ''}`} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleDelete(item.id)}
+                                className="h-8 w-8 text-[#8B949E] hover:text-red-500 hover:bg-red-500/10"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -14,6 +14,7 @@ export default function Configuration({ session }: { session: any }) {
   const [telegramId, setTelegramId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -54,6 +55,33 @@ export default function Configuration({ session }: { session: any }) {
     }
   };
 
+  const handleTestConnection = async () => {
+    if (!telegramId) {
+      toast.error('Please enter a Telegram Chat ID first');
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const response = await fetch('/api/test-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Test message sent! Check your Telegram.');
+      } else {
+        throw new Error(data.error || 'Failed to send test message');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Connection test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -76,12 +104,23 @@ export default function Configuration({ session }: { session: any }) {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Telegram Chat ID</label>
-            <Input
-              placeholder="e.g. 123456789"
-              value={telegramId}
-              onChange={(e) => setTelegramId(e.target.value)}
-              className="bg-[#0F1115] border-[#2D333B] text-white focus-visible:ring-[#4F46E5]"
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. 123456789"
+                value={telegramId}
+                onChange={(e) => setTelegramId(e.target.value)}
+                className="bg-[#0F1115] border-[#2D333B] text-white focus-visible:ring-[#4F46E5]"
+              />
+              <Button 
+                variant="outline" 
+                onClick={handleTestConnection} 
+                disabled={testing || !telegramId}
+                className="border-[#2D333B] bg-[#0F1115] text-[#E6EDF3] hover:bg-[#2D333B] whitespace-nowrap"
+              >
+                {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                Test
+              </Button>
+            </div>
             <p className="text-[10px] text-[#8B949E]">
               You can get your Chat ID by messaging <code className="bg-[#0F1115] px-1 rounded text-[#E6EDF3]">@userinfobot</code> on Telegram.
             </p>

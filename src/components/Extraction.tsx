@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Search, Loader2, Plus, ExternalLink, DollarSign, ClipboardPaste, Zap, Globe, Cpu, Sparkles } from 'lucide-react';
+import { Search, Loader2, Plus, ExternalLink, Euro, ClipboardPaste, Zap, Globe, Cpu, Sparkles } from 'lucide-react';
 import { ScrapeResult } from '../types';
 
 export default function Extraction({ session, onMonitor }: { session: any, onMonitor: () => void }) {
@@ -159,7 +159,7 @@ export default function Extraction({ session, onMonitor }: { session: any, onMon
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Target Price (€)</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B949E]" />
+                  <Euro className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B949E]" />
                   <Input
                     type="number"
                     step="0.01"
