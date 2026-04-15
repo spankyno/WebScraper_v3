@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { RefreshCw, Trash2, ExternalLink, TrendingDown, TrendingUp, Minus, Loader2, Pencil, Check, X } from 'lucide-react';
+import { RefreshCw, Trash2, ExternalLink, TrendingDown, TrendingUp, Minus, Loader2, Pencil, Check, X, Clock } from 'lucide-react';
 import { MonitoredItem } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { Input } from '@/components/ui/input';
@@ -109,12 +109,18 @@ export default function MonitoredItems({ session }: { session: any }) {
   };
 
   const handleUpdate = async (id: string) => {
+    const price = parseFloat(editTargetPrice);
+    if (isNaN(price)) {
+      toast.error('Please enter a valid target price');
+      return;
+    }
+
     setUpdating(true);
     try {
       const { error } = await supabase
         .from('monitored_items')
         .update({
-          target_price: parseFloat(editTargetPrice),
+          target_price: price,
           frequency: editFrequency
         })
         .eq('id', id);
@@ -122,6 +128,7 @@ export default function MonitoredItems({ session }: { session: any }) {
       if (error) throw error;
       toast.success('Item updated successfully');
       setEditingId(null);
+      fetchItems(); // Explicitly refresh after update
     } catch (error: any) {
       toast.error(error.message || 'Failed to update item');
     } finally {
@@ -157,6 +164,7 @@ export default function MonitoredItems({ session }: { session: any }) {
                   <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Product</TableHead>
                   <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Current Price</TableHead>
                   <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Target</TableHead>
+                  <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Frequency</TableHead>
                   <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Trend</TableHead>
                   <TableHead className="text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Last Check</TableHead>
                   <TableHead className="text-right text-[#8B949E] uppercase text-[10px] font-bold tracking-wider">Actions</TableHead>
@@ -180,32 +188,37 @@ export default function MonitoredItems({ session }: { session: any }) {
                       </TableCell>
                       <TableCell>
                         {editingId === item.id ? (
-                          <div className="flex flex-col gap-2">
-                            <div className="relative">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B949E]">€</span>
-                              <Input 
-                                type="number" 
-                                value={editTargetPrice} 
-                                onChange={(e) => setEditTargetPrice(e.target.value)}
-                                className="h-7 w-20 pl-5 text-[10px] bg-[#0F1115] border-[#2D333B]"
-                              />
-                            </div>
-                            <select
-                              value={editFrequency}
-                              onChange={(e) => setEditFrequency(e.target.value)}
-                              className="h-7 w-20 bg-[#0F1115] border border-[#2D333B] rounded px-1 text-[10px] text-white focus:outline-none"
-                            >
-                              <option value="1h">1h</option>
-                              <option value="6h">6h</option>
-                              <option value="24h">24h</option>
-                              <option value="72h">72h</option>
-                            </select>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B949E]">€</span>
+                            <Input 
+                              type="number" 
+                              value={editTargetPrice} 
+                              onChange={(e) => setEditTargetPrice(e.target.value)}
+                              className="h-7 w-20 pl-5 text-[10px] bg-[#0F1115] border-[#2D333B]"
+                            />
                           </div>
                         ) : (
                           <span className="text-[10px] font-bold text-[#8B949E] bg-[#0F1115] border border-[#2D333B] px-2 py-1 rounded">
                             OBJ: {item.target_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                            <span className="ml-1 opacity-50">({item.frequency})</span>
                           </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === item.id ? (
+                          <select
+                            value={editFrequency}
+                            onChange={(e) => setEditFrequency(e.target.value)}
+                            className="h-7 w-20 bg-[#0F1115] border border-[#2D333B] rounded px-1 text-[10px] text-white focus:outline-none"
+                          >
+                            <option value="1h">1h</option>
+                            <option value="6h">6h</option>
+                            <option value="24h">24h</option>
+                            <option value="72h">72h</option>
+                          </select>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-[#2D333B] text-[#8B949E] flex items-center gap-1 w-fit">
+                            <Clock className="h-2.5 w-2.5" /> {item.frequency}
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell>
@@ -255,6 +268,7 @@ export default function MonitoredItems({ session }: { session: any }) {
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
+                                title="Check Now"
                                 onClick={() => handleRecheck(item)}
                                 disabled={rechecking === item.id}
                                 className="h-8 w-8 text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#2D333B]"
