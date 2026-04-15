@@ -1,4 +1,4 @@
-import { parsePrice } from './fetchParser';
+import { parsePrice } from './fetchParser.js';
 
 export async function browserlessScraper(url: string, selector?: string): Promise<any> {
   const t0 = Date.now();

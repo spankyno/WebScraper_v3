@@ -1,6 +1,6 @@
-import { fetchParser } from './fetchParser';
-import { browserlessScraper } from './browserless';
-import { geminiScraper } from './gemini';
+import { fetchParser } from './fetchParser.js';
+import { browserlessScraper } from './browserless.js';
+import { geminiScraper } from './gemini.js';
 
 export async function hybridScraper(url: string, selector?: string, instruction?: string) {
   const errors: string[] = [];
