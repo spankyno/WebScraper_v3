@@ -13,6 +13,33 @@ export default async function handler(req: any, res: any) {
 
   console.log(`[API] Scrape request received for URL: ${url}`);
 
+  // --- Scraper Proxy Support ---
+  const proxyUrl = process.env.SCRAPER_PROXY_URL;
+  if (proxyUrl) {
+    try {
+      console.log(`[API] Forwarding to Scraper Proxy: ${proxyUrl}`);
+      const proxyRes = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, method, selector, instruction }),
+        signal: AbortSignal.timeout(25000)
+      });
+      
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        return res.status(200).json(proxyData);
+      } else {
+        const errorText = await proxyRes.text();
+        console.error(`[API] Proxy failed (${proxyRes.status}):`, errorText.slice(0, 100));
+        // Fallback to local if proxy fails? No, let's report it.
+        return res.status(proxyRes.status).json({ error: `Proxy error: ${errorText.slice(0, 50)}` });
+      }
+    } catch (e: any) {
+      console.error(`[API] Proxy fatal:`, e.message);
+      // Continue to local if proxy fails
+    }
+  }
+
   try {
     let result;
     switch (method) {
