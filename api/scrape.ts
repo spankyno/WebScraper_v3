@@ -11,7 +11,7 @@ export default async function handler(req: any, res: any) {
   const { url, method, selector, instruction } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
-  console.log(`[API] Scrape request received for URL: \${url}`);
+  console.log(`[API] Scrape request received for URL: ${url}`);
 
   try {
     let result;

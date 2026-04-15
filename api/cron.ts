@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 export default async function handler(req: any, res: any) {
   // Simple auth for cron
   const authHeader = req.headers.authorization;
-  if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer \${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+  if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -57,7 +57,7 @@ export default async function handler(req: any, res: any) {
         // Check for alerts
         if (newPrice < oldPrice || newPrice <= item.target_price) {
           alerts++;
-          const message = `🚨 Price Drop! \${item.name} is now \${newPrice} (Target: \${item.target_price})`;
+          const message = `🚨 Price Drop! ${item.name} is now ${newPrice} (Target: ${item.target_price})`;
           
           await supabaseAdmin.from('alerts').insert({
             user_id: item.user_id,
@@ -74,12 +74,12 @@ export default async function handler(req: any, res: any) {
             .single();
 
           if (profile?.telegram_chat_id && process.env.TELEGRAM_BOT_TOKEN) {
-            await fetch(`https://api.telegram.org/bot\${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chat_id: profile.telegram_chat_id,
-                text: message + `\nURL: \${item.url}`
+                text: message + `\nURL: ${item.url}`
               })
             });
           }
