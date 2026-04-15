@@ -14,7 +14,7 @@ export async function browserlessScraper(url: string, selector?: string): Promis
         const { url, selector } = context;
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
         
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 8000 });
         
         const priceSelectors = [
           selector, 
@@ -23,6 +23,7 @@ export async function browserlessScraper(url: string, selector?: string): Promis
           '.a-price-whole', 
           '[class*="price"]:not([class*="was"]):not([class*="old"])',
           '.current-price',
+          '.price',
           '#priceblock_ourprice',
           '#priceblock_dealprice'
         ].filter(Boolean);
@@ -60,14 +61,14 @@ export async function browserlessScraper(url: string, selector?: string): Promis
         code: BROWSER_FN,
         context: { url, selector }
       }),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(9000)
     });
 
     const contentType = res.headers.get('content-type');
     if (!res.ok || !contentType?.includes('application/json')) {
       const text = await res.text();
-      console.error(`[Browserless] Error Response (\${res.status}):`, text.slice(0, 200));
-      throw new Error(`Browserless error \${res.status}: \${text.slice(0, 100)}`);
+      console.error(`[Browserless] Error Response (${res.status}):`, text.slice(0, 200));
+      throw new Error(`Browserless error ${res.status}: ${text.slice(0, 100)}`);
     }
 
     const json: any = await res.json();

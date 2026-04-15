@@ -10,20 +10,20 @@ export async function geminiScraper(url: string, instruction?: string): Promise<
   }
 
   try {
-    console.log(`[Gemini] Taking screenshot for: \${url}`);
-    const screenshotRes = await fetch(`https://chrome.browserless.io/screenshot?token=\${browserlessKey}`, {
+    console.log(`[Gemini] Taking screenshot for: ${url}`);
+    const screenshotRes = await fetch(`https://chrome.browserless.io/screenshot?token=${browserlessKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url,
         options: { fullPage: false, type: 'jpeg', quality: 80 },
-        gotoOptions: { waitUntil: 'networkidle2', timeout: 25000 }
+        gotoOptions: { waitUntil: 'domcontentloaded', timeout: 8000 }
       })
     });
     
     if (!screenshotRes.ok) {
       const text = await screenshotRes.text();
-      console.error(`[Gemini] Screenshot failed (\${screenshotRes.status}):`, text.slice(0, 100));
+      console.error(`[Gemini] Screenshot failed (${screenshotRes.status}):`, text.slice(0, 100));
       throw new Error('Screenshot failed');
     }
     const buffer = await screenshotRes.arrayBuffer();
