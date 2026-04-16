@@ -26,64 +26,102 @@ export default async function handler(req: any, res: any) {
     let alerts = 0;
 
     for (const item of items) {
-      const result = await hybridScraper(item.url);
-      if (result && result.success) {
-        checked++;
-        const oldPrice = item.current_price;
-        const newPrice = result.price;
+      try {
+        let result;
+        const proxyUrl = process.env.SCRAPER_PROXY_URL;
+        
+        if (proxyUrl) {
+          console.log(`[Cron] Forwarding ${item.id} to Scraper Proxy: ${proxyUrl}`);
+          const proxyRes = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: item.url, method: 'hybrid' }),
+            signal: AbortSignal.timeout(25000)
+          });
+          
+          if (proxyRes.ok) {
+            result = await proxyRes.json();
+          } else {
+            console.error(`[Cron] Proxy failed for ${item.id}, falling back to local`);
+            result = await hybridScraper(item.url);
+          }
+        } else {
+          result = await hybridScraper(item.url);
+        }
 
-        // Update item
         const nextCheckDate = new Date();
-        const hours = parseInt(item.frequency);
+        const hours = parseInt(item.frequency) || 1;
         nextCheckDate.setHours(nextCheckDate.getHours() + hours);
 
-        await supabaseAdmin
-          .from('monitored_items')
-          .update({
-            current_price: newPrice,
-            previous_price: oldPrice,
-            last_check: new Date().toISOString(),
-            next_check: nextCheckDate.toISOString()
-          })
-          .eq('id', item.id);
+        if (result && result.success) {
+          checked++;
+          const oldPrice = item.current_price;
+          const newPrice = result.price;
 
-        // Record history
-        await supabaseAdmin.from('price_history').insert({
-          item_id: item.id,
-          price: newPrice,
-          method: result.method
-        });
+          // Update item with success
+          await supabaseAdmin
+            .from('monitored_items')
+            .update({
+              current_price: newPrice,
+              previous_price: oldPrice,
+              last_check: new Date().toISOString(),
+              next_check: nextCheckDate.toISOString()
+            })
+            .eq('id', item.id);
 
-        // Check for alerts
-        if (newPrice < oldPrice || newPrice <= item.target_price) {
-          alerts++;
-          const message = `🚨 Price Drop! ${item.name} is now ${newPrice} (Target: ${item.target_price})`;
-          
-          await supabaseAdmin.from('alerts').insert({
-            user_id: item.user_id,
+          // Record history
+          await supabaseAdmin.from('price_history').insert({
             item_id: item.id,
-            message,
-            type: newPrice <= item.target_price ? 'target_reached' : 'price_drop'
+            price: newPrice,
+            method: result.method
           });
 
-          // Send Telegram if configured
-          const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('telegram_chat_id')
-            .eq('id', item.user_id)
-            .single();
-
-          if (profile?.telegram_chat_id && process.env.TELEGRAM_BOT_TOKEN) {
-            await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: profile.telegram_chat_id,
-                text: message + `\nURL: ${item.url}`
-              })
+          // Check for alerts
+          if (newPrice < oldPrice || newPrice <= item.target_price) {
+            alerts++;
+            const isTargetReached = newPrice <= item.target_price;
+            const message = isTargetReached 
+              ? `🎯 Target Reached! ${item.name} is now ${newPrice}€ (Target: ${item.target_price}€)`
+              : `📉 Price Drop! ${item.name} is now ${newPrice}€ (Previous: ${oldPrice}€)`;
+            
+            await supabaseAdmin.from('alerts').insert({
+              user_id: item.user_id,
+              item_id: item.id,
+              message,
+              type: isTargetReached ? 'target_reached' : 'price_drop'
             });
+
+            // Send Telegram if configured
+            const { data: profile } = await supabaseAdmin
+              .from('profiles')
+              .select('telegram_chat_id')
+              .eq('id', item.user_id)
+              .single();
+
+            if (profile?.telegram_chat_id && process.env.TELEGRAM_BOT_TOKEN) {
+              await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: profile.telegram_chat_id,
+                  text: message + `\nURL: ${item.url}`
+                })
+              });
+            }
           }
+        } else {
+          // Even if scrape fails, we must move next_check forward 
+          // to prevent blocking the queue with failing items
+          console.error(`[Cron] Scrape failed for ${item.id}: ${result?.error || 'Unknown error'}`);
+          await supabaseAdmin
+            .from('monitored_items')
+            .update({
+              next_check: nextCheckDate.toISOString()
+            })
+            .eq('id', item.id);
         }
+      } catch (itemError: any) {
+        console.error(`[Cron] Error processing item ${item.id}:`, itemError.message);
       }
     }
 
