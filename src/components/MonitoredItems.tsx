@@ -194,8 +194,8 @@ export default function MonitoredItems({ session }: { session: any }) {
                             />
                           </div>
                         ) : (
-                          <span className="text-[10px] font-bold text-[#8B949E] bg-[#0F1115] border border-[#2D333B] px-2 py-1 rounded">
-                            OBJ: {item.target_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                          <span className="font-bold text-[#4F46E5]">
+                            {item.target_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                           </span>
                         )}
                       </TableCell>

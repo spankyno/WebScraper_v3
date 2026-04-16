@@ -15,27 +15,69 @@ export default function Configuration({ session }: { session: any }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    alertsToday: 0,
+    alerts30Days: 0,
+    totalAlerts: 0
+  });
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch Profile
+        const { data: profile } = await supabase
           .from('profiles')
           .select('telegram_chat_id')
           .eq('id', session.user.id)
           .single();
 
-        if (error) throw error;
-        if (data) setTelegramId(data.telegram_chat_id || '');
+        if (profile) setTelegramId(profile.telegram_chat_id || '');
+
+        // Fetch Stats
+        const { count: totalItems } = await supabase
+          .from('monitored_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const last30Days = new Date();
+        last30Days.setDate(last30Days.getDate() - 30);
+
+        const { count: alertsToday } = await supabase
+          .from('alerts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', session.user.id)
+          .gte('timestamp', today.toISOString());
+
+        const { count: alerts30Days } = await supabase
+          .from('alerts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', session.user.id)
+          .gte('timestamp', last30Days.toISOString());
+
+        const { count: totalAlerts } = await supabase
+          .from('alerts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+
+        setStats({
+          totalItems: totalItems || 0,
+          alertsToday: alertsToday || 0,
+          alerts30Days: alerts30Days || 0,
+          totalAlerts: totalAlerts || 0
+        });
+
       } catch (error: any) {
-        console.error('Failed to fetch profile:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfile();
+    fetchData();
   }, [session.user.id]);
 
   const handleSave = async () => {
@@ -136,22 +178,30 @@ export default function Configuration({ session }: { session: any }) {
 
       <Card className="bg-[#1A1D23] border-[#2D333B]">
         <CardHeader>
-          <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold mb-2 block">Cuenta</span>
+          <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold mb-2 block">Estadísticas</span>
           <CardTitle className="flex items-center gap-2 text-xl font-bold">
             <Shield className="h-5 w-5 text-[#4F46E5]" />
-            Account & Preferences
+            User Statistics
           </CardTitle>
-          <CardDescription className="text-[#8B949E]">Manage your account settings and app appearance.</CardDescription>
+          <CardDescription className="text-[#8B949E]">Overview of your monitoring activity.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-[#0F1115] border border-[#2D333B]">
-            <div className="space-y-0.5">
-              <div className="text-sm font-bold text-[#E6EDF3]">Appearance</div>
-              <div className="text-xs text-[#8B949E]">Elegant Dark theme is active.</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+              <span className="text-2xl font-bold text-[#4F46E5]">{stats.totalItems}</span>
+              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Products</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Moon className="h-4 w-4 text-[#4F46E5]" />
-              <Switch checked={true} disabled className="data-[state=checked]:bg-[#4F46E5]" />
+            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+              <span className="text-2xl font-bold text-[#10B981]">{stats.alertsToday}</span>
+              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Alerts Today</span>
+            </div>
+            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+              <span className="text-2xl font-bold text-[#F59E0B]">{stats.alerts30Days}</span>
+              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Last 30 Days</span>
+            </div>
+            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+              <span className="text-2xl font-bold text-[#E6EDF3]">{stats.totalAlerts}</span>
+              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Total Alerts</span>
             </div>
           </div>
           
