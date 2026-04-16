@@ -226,7 +226,7 @@ export default function MonitoredItems({ session }: { session: any }) {
                           <span className="text-[#8B949E] flex items-center gap-1 text-xs"><Minus className="h-3 w-3" /> 0.00€</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-[10px] text-[#8B949E] font-medium">
+                      <TableCell className="text-[10px] text-[#8B949E] font-medium" title={item.last_check ? new Date(item.last_check).toLocaleString('es-ES') : ''}>
                         {item.last_check ? formatDistanceToNow(new Date(item.last_check), { addSuffix: true }) : 'Never'}
                       </TableCell>
                       <TableCell className="text-right">
