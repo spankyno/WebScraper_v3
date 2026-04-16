@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Send, Shield, User, Loader2, Moon, Sun } from 'lucide-react';
+import { Send, Shield, User, Loader2, Moon, Sun, Activity } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export default function Configuration({ session }: { session: any }) {
   const [telegramId, setTelegramId] = useState('');
@@ -21,6 +22,7 @@ export default function Configuration({ session }: { session: any }) {
     alerts30Days: 0,
     totalAlerts: 0
   });
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,6 +71,37 @@ export default function Configuration({ session }: { session: any }) {
           alerts30Days: alerts30Days || 0,
           totalAlerts: totalAlerts || 0
         });
+
+        // Fetch Chart Data (Price checks in last 24h)
+        const yesterday = new Date();
+        yesterday.setHours(yesterday.getHours() - 24);
+
+        const { data: history } = await supabase
+          .from('price_history')
+          .select('timestamp')
+          .gte('timestamp', yesterday.toISOString())
+          .order('timestamp', { ascending: true });
+
+        // Group by hour
+        const hourlyData = Array.from({ length: 24 }, (_, i) => {
+          const d = new Date();
+          d.setHours(d.getHours() - (23 - i), 0, 0, 0);
+          return {
+            time: d.getHours() + ':00',
+            checks: 0,
+            fullTime: d.toISOString()
+          };
+        });
+
+        if (history) {
+          history.forEach((h: any) => {
+            const hDate = new Date(h.timestamp);
+            const hourStr = hDate.getHours() + ':00';
+            const dataPoint = hourlyData.find(d => d.time === hourStr);
+            if (dataPoint) dataPoint.checks++;
+          });
+        }
+        setChartData(hourlyData);
 
       } catch (error: any) {
         console.error('Failed to fetch data:', error);
@@ -178,30 +211,73 @@ export default function Configuration({ session }: { session: any }) {
 
       <Card className="bg-[#1A1D23] border-[#2D333B]">
         <CardHeader>
-          <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold mb-2 block">Estadísticas</span>
+          <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold mb-2 block">Actividad & Estadísticas</span>
           <CardTitle className="flex items-center gap-2 text-xl font-bold">
-            <Shield className="h-5 w-5 text-[#4F46E5]" />
-            User Statistics
+            <Activity className="h-5 w-5 text-[#4F46E5]" />
+            System Activity
           </CardTitle>
-          <CardDescription className="text-[#8B949E]">Overview of your monitoring activity.</CardDescription>
+          <CardDescription className="text-[#8B949E]">Real-time monitoring stats and 24h update activity.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
-              <span className="text-2xl font-bold text-[#4F46E5]">{stats.totalItems}</span>
-              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Products</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column: Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-bold text-[#4F46E5]">{stats.totalItems}</span>
+                <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Products</span>
+              </div>
+              <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-bold text-[#10B981]">{stats.alertsToday}</span>
+                <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Alerts Today</span>
+              </div>
+              <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-bold text-[#F59E0B]">{stats.alerts30Days}</span>
+                <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Last 30 Days</span>
+              </div>
+              <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-bold text-[#E6EDF3]">{stats.totalAlerts}</span>
+                <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Total Alerts</span>
+              </div>
             </div>
-            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
-              <span className="text-2xl font-bold text-[#10B981]">{stats.alertsToday}</span>
-              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Alerts Today</span>
-            </div>
-            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
-              <span className="text-2xl font-bold text-[#F59E0B]">{stats.alerts30Days}</span>
-              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Last 30 Days</span>
-            </div>
-            <div className="p-4 rounded-lg bg-[#0F1115] border border-[#2D333B] flex flex-col items-center justify-center text-center">
-              <span className="text-2xl font-bold text-[#E6EDF3]">{stats.totalAlerts}</span>
-              <span className="text-[10px] text-[#8B949E] uppercase font-bold tracking-tighter mt-1">Total Alerts</span>
+
+            {/* Right Column: Chart */}
+            <div className="h-[200px] w-full bg-[#0F1115] border border-[#2D333B] rounded-lg p-4">
+              <div className="text-[10px] text-[#8B949E] uppercase font-bold tracking-wider mb-4 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-[#4F46E5] animate-pulse" />
+                24h Check Activity
+              </div>
+              <ResponsiveContainer width="100%" height="85%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorChecks" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#8B949E', fontSize: 10}}
+                    interval={5}
+                  />
+                  <YAxis hide />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1A1D23', border: '1px solid #2D333B', borderRadius: '8px', fontSize: '10px' }}
+                    itemStyle={{ color: '#E6EDF3' }}
+                    labelStyle={{ color: '#8B949E' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="checks" 
+                    stroke="#4F46E5" 
+                    fillOpacity={1} 
+                    fill="url(#colorChecks)" 
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
           
