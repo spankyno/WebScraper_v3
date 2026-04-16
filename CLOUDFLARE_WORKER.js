@@ -41,11 +41,11 @@ export default {
 
   async scheduled(event, env, ctx) {
     console.log('[Worker] Scheduled cron trigger');
-    const vercelUrl = env.APP_URL || 'https://ais-dev-32qlw4os74irqunc55yi5h-73893629377.europe-west2.run.app';
+    const vercelUrl = env.APP_URL;
     const cronSecret = env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!cronSecret) {
-      console.error('[Worker] SUPABASE_SERVICE_ROLE_KEY missing in Worker secrets');
+    if (!vercelUrl || !cronSecret) {
+      console.error('[Worker] APP_URL o SUPABASE_SERVICE_ROLE_KEY faltantes en los secretos del Worker');
       return;
     }
 
@@ -55,10 +55,15 @@ export default {
           'Authorization': `Bearer ${cronSecret}`
         }
       });
-      const data = await res.json();
-      console.log('[Worker] Cron result:', data);
+      
+      if (res.status === 401) {
+        console.error('[Worker] Error 401: La llave SUPABASE_SERVICE_ROLE_KEY no coincide o no está autorizada');
+      } else {
+        const data = await res.json();
+        console.log('[Worker] Cron ejecutado con éxito:', data);
+      }
     } catch (e) {
-      console.error('[Worker] Cron trigger failed:', e.message);
+      console.error('[Worker] Error al contactar con Vercel:', e.message);
     }
   }
 };
