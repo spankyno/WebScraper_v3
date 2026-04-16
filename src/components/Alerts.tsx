@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Bell, History, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Bell, History, Loader2, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { Alert } from '../types';
 import { format } from 'date-fns';
 
@@ -16,7 +16,7 @@ export default function Alerts({ session }: { session: any }) {
       try {
         const { data, error } = await supabase
           .from('alerts')
-          .select('*')
+          .select('*, monitored_items(name, url)')
           .order('timestamp', { ascending: false });
 
         if (error) throw error;
@@ -63,18 +63,33 @@ export default function Alerts({ session }: { session: any }) {
                   className="border-b border-[#2D333B] pb-4 last:border-0 last:pb-0"
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                      alert.type === 'target_reached' || alert.type === 'price_drop' 
-                        ? 'bg-[#10B981]/10 text-[#10B981]' 
-                        : 'bg-[#F59E0B]/10 text-[#F59E0B]'
-                    }`}>
-                      {alert.type.replace('_', ' ')}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider w-fit ${
+                        alert.type === 'target_reached' || alert.type === 'price_drop' 
+                          ? 'bg-[#10B981]/10 text-[#10B981]' 
+                          : 'bg-[#F59E0B]/10 text-[#F59E0B]'
+                      }`}>
+                        {alert.type.replace('_', ' ')}
+                      </span>
+                      {alert.monitored_items && (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-[#E6EDF3]">{alert.monitored_items.name}</span>
+                          <a 
+                            href={alert.monitored_items.url} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-[10px] text-[#4F46E5] hover:underline flex items-center gap-1"
+                          >
+                            Ver producto <ExternalLink className="h-2 w-2" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-[10px] text-[#8B949E] font-medium">
                       {format(new Date(alert.timestamp), 'p')}
                     </span>
                   </div>
-                  <p className="text-sm text-[#E6EDF3] leading-relaxed">
+                  <p className="text-sm text-[#8B949E] leading-relaxed mt-2">
                     {alert.message}
                   </p>
                 </div>

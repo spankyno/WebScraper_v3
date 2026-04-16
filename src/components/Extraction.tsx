@@ -12,9 +12,17 @@ export default function Extraction({ session, onMonitor }: { session: any, onMon
   const [method, setMethod] = useState('hybrid');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScrapeResult | null>(null);
+  const [productName, setProductName] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [frequency, setFrequency] = useState('24h');
   const [saving, setSaving] = useState(false);
+
+  // Update productName when result changes
+  React.useEffect(() => {
+    if (result) {
+      setProductName(result.productName || result.name || '');
+    }
+  }, [result]);
 
   const handlePaste = async () => {
     try {
@@ -62,7 +70,7 @@ export default function Extraction({ session, onMonitor }: { session: any, onMon
       const { error } = await supabase.from('monitored_items').insert({
         user_id: session.user.id,
         url,
-        name: result.productName || result.name,
+        name: productName || result.productName || result.name,
         target_price: parseFloat(targetPrice),
         current_price: result.price,
         frequency,
@@ -155,6 +163,16 @@ export default function Extraction({ session, onMonitor }: { session: any, onMon
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Product Name</label>
+              <Input
+                placeholder="Custom product name"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="bg-[#0F1115] border-[#2D333B] text-white focus-visible:ring-[#4F46E5]"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Target Price (€)</label>
