@@ -15,6 +15,7 @@ export default function MonitoredItems({ session }: { session: any }) {
   const [loading, setLoading] = useState(true);
   const [rechecking, setRechecking] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const [editTargetPrice, setEditTargetPrice] = useState('');
   const [editFrequency, setEditFrequency] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -89,12 +90,14 @@ export default function MonitoredItems({ session }: { session: any }) {
 
   const startEditing = (item: MonitoredItem) => {
     setEditingId(item.id);
+    setEditName(item.name);
     setEditTargetPrice(item.target_price.toString());
     setEditFrequency(item.frequency);
   };
 
   const cancelEditing = () => {
     setEditingId(null);
+    setEditName('');
     setEditTargetPrice('');
     setEditFrequency('');
   };
@@ -103,6 +106,11 @@ export default function MonitoredItems({ session }: { session: any }) {
     const price = parseFloat(editTargetPrice);
     if (isNaN(price)) {
       toast.error('Please enter a valid target price');
+      return;
+    }
+
+    if (!editName.trim()) {
+      toast.error('Product name cannot be empty');
       return;
     }
 
@@ -115,6 +123,7 @@ export default function MonitoredItems({ session }: { session: any }) {
       const { error } = await supabase
         .from('monitored_items')
         .update({
+          name: editName.trim(),
           target_price: price,
           frequency: editFrequency,
           next_check: nextCheckDate.toISOString()
@@ -172,8 +181,16 @@ export default function MonitoredItems({ session }: { session: any }) {
                   return (
                     <TableRow key={item.id} className="border-b border-[#2D333B] hover:bg-[#0F1115]/50 transition-colors">
                       <TableCell className="font-medium">
-                        <div className="flex flex-col">
-                          <span className="truncate max-w-[200px] text-[#E6EDF3] font-semibold">{item.name}</span>
+                        <div className="flex flex-col gap-1">
+                          {editingId === item.id ? (
+                            <Input 
+                              value={editName} 
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="h-7 text-xs bg-[#0F1115] border-[#2D333B] text-[#E6EDF3]"
+                            />
+                          ) : (
+                            <span className="truncate max-w-[200px] text-[#E6EDF3] font-semibold">{item.name}</span>
+                          )}
                           <a href={item.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#8B949E] hover:text-[#4F46E5] flex items-center gap-1 transition-colors">
                             {new URL(item.url).hostname} <ExternalLink className="h-2 w-2" />
                           </a>
