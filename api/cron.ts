@@ -18,7 +18,9 @@ export default async function handler(req: any, res: any) {
       .from('monitored_items')
       .select('*')
       .eq('active', true)
-      .lte('next_check', new Date().toISOString());
+      .lte('next_check', new Date().toISOString())
+      .order('next_check', { ascending: true })
+      .limit(10); // Process in batches to avoid Vercel timeouts
 
     if (error) throw error;
 
@@ -116,6 +118,7 @@ export default async function handler(req: any, res: any) {
           await supabaseAdmin
             .from('monitored_items')
             .update({
+              last_check: new Date().toISOString(),
               next_check: nextCheckDate.toISOString()
             })
             .eq('id', item.id);
