@@ -4,7 +4,7 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from 'next-themes';
-import { Loader2, Globe, Search, Activity, Bell, Settings, LogOut } from 'lucide-react';
+import { Loader2, Globe, Search, Activity, Bell, Settings, LogOut, User } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -122,6 +122,60 @@ export default function App() {
               </div>
 
               <Dashboard session={session} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+              {/* Footer */}
+              <footer className="mt-auto pt-12 pb-6 border-t border-[#2D333B]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-lg font-bold">
+                      <Globe className="h-4 w-4 text-[#4F46E5]" />
+                      <span>Web<span className="text-[#4F46E5]">Scraper</span></span>
+                    </div>
+                    <p className="text-xs text-[#8B949E] leading-relaxed max-w-xs">
+                      Herramienta profesional de monitorización de precios y extracción de datos en tiempo real.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <h4 className="text-[10px] font-bold text-[#E6EDF3] uppercase tracking-wider">Contacto</h4>
+                      <div className="flex flex-col gap-2">
+                        <a href="mailto:blog.cottage627@passinbox.com" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                          <LogOut className="h-3 w-3 rotate-180" />
+                          Email
+                        </a>
+                        <a href="https://aitor-blog-contacto.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Contacto
+                        </a>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <h4 className="text-[10px] font-bold text-[#E6EDF3] uppercase tracking-wider">Recursos</h4>
+                      <div className="flex flex-col gap-2">
+                        <a href="https://aitorblog.infinityfreeapp.com" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                          <Globe className="h-3 w-3" />
+                          Blog
+                        </a>
+                        <a href="https://aitorhub.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                          <Settings className="h-3 w-3" />
+                          Más apps
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t border-[#2D333B]/50">
+                  <p className="text-[10px] text-[#8B949E]">
+                    Aitor Sánchez Gutiérrez © 2026 - Reservados todos los derechos
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#8B949E] flex items-center gap-1">
+                      <div className="h-1 w-1 rounded-full bg-[#10B981]" />
+                      System Status: Operational
+                    </span>
+                  </div>
+                </div>
+              </footer>
             </main>
           </>
         )}
