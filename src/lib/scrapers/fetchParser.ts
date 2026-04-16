@@ -11,15 +11,59 @@ export function parsePrice(raw: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+function deepFindPrice(obj: any): any {
+  if (!obj || typeof obj !== 'object') return null;
+  
+  // Priority keys first
+  const priorityKeys = ['price', 'unitPrice', 'currentPrice', 'amount', 'value'];
+  for (const key of priorityKeys) {
+    if (obj[key] !== undefined && (typeof obj[key] === 'number' || typeof obj[key] === 'string')) {
+      const p = parsePrice(obj[key].toString());
+      if (p !== null) return p;
+    }
+  }
+
+  for (const key in obj) {
+    const value = obj[key];
+    if (
+      key.toLowerCase().includes('price') &&
+      (typeof value === 'number' || typeof value === 'string')
+    ) {
+      const p = parsePrice(value.toString());
+      if (p !== null) return p;
+    }
+    const found = deepFindPrice(value);
+    if (found) return found;
+  }
+  return null;
+}
+
+function extractAllJSON(html: string): any[] {
+  const matches = html.match(/<script[^>]*>([\s\S]*?)<\/script>/g);
+  if (!matches) return [];
+  const results = [];
+  for (const m of matches) {
+    try {
+      const content = m.replace(/<script[^>]*>|<\/script>/g, '').trim();
+      if (content.startsWith('{') || content.startsWith('[')) {
+        const json = JSON.parse(content);
+        results.push(json);
+      }
+    } catch {}
+  }
+  return results;
+}
+
 export async function fetchParser(url: string, selector?: string) {
   const t0 = Date.now();
   try {
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -27,80 +71,51 @@ export async function fetchParser(url: string, selector?: string) {
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    let priceRaw = '';
+    let priceRaw: any = null;
     let productName = '';
 
-    // 1. Try JSON-LD (most reliable for retailers)
-    $('script[type="application/ld+json"]').each((_, el) => {
-      try {
-        const json = JSON.parse($(el).html() || '');
-        const items = Array.isArray(json) ? json : [json];
-        for (const item of items) {
-          // Handle Product or WebPage with mainEntity Product
-          const product = item['@type'] === 'Product' ? item : (item.mainEntity?.['@type'] === 'Product' ? item.mainEntity : null);
-          if (product) {
-            if (!productName) productName = product.name;
-            const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
-            if (offers && offers.price) {
-              priceRaw = offers.price.toString();
-              return false; // break each
+    // 1. Try Universal JSON Extraction (NEXT_DATA, JSON-LD, etc)
+    const allJSON = extractAllJSON(html);
+    for (const j of allJSON) {
+      const p = deepFindPrice(j);
+      if (p !== null) {
+        priceRaw = p;
+        break;
+      }
+    }
+
+    // 2. Fallback to selectors if JSON fails
+    if (priceRaw === null) {
+      if (selector) {
+        priceRaw = $(selector).first().text() || $(selector).first().attr('content') || $(selector).first().attr('data-price') || '';
+      }
+
+      if (!priceRaw) {
+        const priceSelectors = [
+          '[data-testid*="price"]',
+          '[class*="price"]:not([class*="was"]):not([class*="old"])',
+          '[id*="price"]',
+          '[itemprop="price"]', 
+          'meta[property="product:price:amount"]',
+          'meta[name="twitter:data1"]',
+          '.price',
+          '.current-price',
+          '.a-price-whole'
+        ];
+        for (const sel of priceSelectors) {
+          const el = $(sel).first();
+          if (el.length) {
+            const val = el.attr('content') ?? el.attr('data-price') ?? el.text();
+            if (val) {
+              priceRaw = val;
+              break;
             }
           }
         }
-      } catch (e) {}
-    });
-
-    if (!priceRaw && selector) {
-      priceRaw = $(selector).first().text() || $(selector).first().attr('content') || $(selector).first().attr('data-price') || '';
-    }
-
-    if (!priceRaw) {
-      const priceSelectors = [
-        '[itemprop="price"]', 
-        'meta[property="product:price:amount"]',
-        'meta[name="twitter:data1"]',
-        '.price',
-        '.current-price',
-        '[class*="price"]:not([class*="was"]):not([class*="old"])',
-        '.a-price-whole'
-      ];
-      for (const sel of priceSelectors) {
-        const el = $(sel).first();
-        if (el.length) {
-          priceRaw = el.attr('content') ?? el.attr('data-price') ?? el.text();
-          if (priceRaw) break;
-        }
       }
     }
 
-    const price = parsePrice(priceRaw);
-    
-    // 2. Try NEXT_DATA or INITIAL_STATE if price still missing
-    let finalPrice = price;
-    if (finalPrice === null) {
-      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-      if (nextDataMatch) {
-        try {
-          const json = JSON.parse(nextDataMatch[1]);
-          const p = json?.props?.pageProps?.product?.price || 
-                    json?.props?.pageProps?.initialData?.product?.price ||
-                    json?.props?.pageProps?.productData?.price ||
-                    json?.props?.pageProps?.data?.product?.price?.unitPrice;
-          if (p) finalPrice = parsePrice(p);
-        } catch {}
-      }
-    }
-
-    if (finalPrice === null) {
-      const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});/);
-      if (stateMatch) {
-        try {
-          const json = JSON.parse(stateMatch[1]);
-          const p = json?.product?.price || json?.product?.currentPrice || json?.details?.price;
-          if (p) finalPrice = parsePrice(p);
-        } catch {}
-      }
-    }
+    const finalPrice = typeof priceRaw === 'number' ? priceRaw : parsePrice(priceRaw);
 
     if (!productName) {
       productName = $('h1[itemprop="name"]').first().text().trim() || 
