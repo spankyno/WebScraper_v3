@@ -1,20 +1,25 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Web Scraper Monitoring & Alerts
 
-# Run and deploy your AI Studio app
+A professional, full-stack price monitoring application built with **React**, **Next.js**, and **Supabase**. It features a hybrid scraping engine capable of extracting data from complex SPAs and anti-bot protected websites.
 
-This contains everything you need to run your app locally.
+## 🚀 Tech Stack
 
-View your app in AI Studio: https://ai.studio/apps/5ee7b843-72a9-4a58-8e46-437bd7c19dec
+- **Frontend**: React 18, Vite, Tailwind CSS, Shadcn UI, Recharts, Lucide Icons.
+- **Backend**: Next.js Serverless Functions (Vercel), Cloudflare Workers.
+- **Database & Auth**: Supabase (PostgreSQL + Real-time).
+- **Scraping Engine**: 
+  - **Smart Fetch**: Universal JSON extraction (JSON-LD, NEXT_DATA, window state).
+  - **Browserless**: Headless Chrome with API interception and network monitoring.
+  - **Gemini AI**: Vision-based extraction fallback using screenshots.
+- **Notifications**: Telegram Bot API integration.
+- **Automation**: Scheduled Cron jobs via Cloudflare Workers.
 
-## Run Locally
+## ✨ Key Features
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **Hybrid Scraper**: Automatically switches between light fetch, headless browser, and AI vision to ensure successful price extraction.
+- **Universal JSON Parser**: Deep-searches internal site data (Next.js, React states) to find prices hidden from the DOM.
+- **Real-time Monitoring**: Track products with custom frequencies (1h, 6h, 24h, 72h).
+- **Smart Alerts**: Receive instant Telegram notifications when a price drops or reaches your target.
+- **Activity Dashboard**: Visual 24h activity chart and user statistics.
+- **Anti-Bot Bypass**: Uses rotating fingerprints and proxy workers to overcome scraper blocks.
+- **Mobile Responsive**: Polished dark-mode UI optimized for all devices.
