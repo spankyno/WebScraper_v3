@@ -47,16 +47,16 @@ export default function Auth() {
             Web<span className="text-[#4F46E5]">Scraper</span> v3
           </CardTitle>
           <CardDescription className="text-[#8B949E]">
-            {isSignUp ? 'Create an account to start monitoring' : 'Welcome back! Sign in to your dashboard'}
+            {isSignUp ? 'Crea una cuenta para empezar a monitorizar precios' : 'Accede a tu panel de control de WebScraper v3'}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleAuth}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Email Address</label>
+              <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Correo Electrónico</label>
               <Input
                 type="email"
-                placeholder="name@example.com"
+                placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -64,7 +64,7 @@ export default function Auth() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Password</label>
+              <label className="text-xs font-semibold text-[#8B949E] uppercase tracking-wider">Contraseña</label>
               <Input
                 type="password"
                 placeholder="••••••••"
@@ -74,19 +74,36 @@ export default function Auth() {
                 className="bg-[#0F1115] border-[#2D333B] text-white focus-visible:ring-[#4F46E5]"
               />
             </div>
+            
+            <div className="pt-2">
+              <p className="text-[10px] text-[#8B949E] leading-tight text-center italic">
+                Esta es una herramienta privada de monitorización de precios. 
+                Tus credenciales están protegidas y cifradas.
+              </p>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold py-6" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : isSignUp ? <UserPlus className="h-4 w-4 mr-2" /> : <LogIn className="h-4 w-4 mr-2" />}
-              {isSignUp ? 'Create Account' : 'Sign In'}
+              {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
             </Button>
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-[#8B949E] hover:text-[#E6EDF3] transition-colors"
-            >
-              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </button>
+            
+            <div className="flex flex-col items-center gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-[#8B949E] hover:text-[#E6EDF3] transition-colors"
+              >
+                {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : "¿No tienes cuenta? Regístrate"}
+              </button>
+              
+              <div className="flex items-center gap-4 pt-2 border-t border-[#2D333B] w-full justify-center">
+                <span className="text-[9px] text-[#545d68] uppercase tracking-widest font-bold flex items-center gap-1">
+                  <div className="h-1 w-1 rounded-full bg-[#4F46E5]" />
+                  Secure Auth by Supabase
+                </span>
+              </div>
+            </div>
           </CardFooter>
         </form>
       </Card>
