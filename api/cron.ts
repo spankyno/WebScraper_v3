@@ -16,8 +16,9 @@ export default async function handler(req: any, res: any) {
   try {
     const { data: items, error } = await supabaseAdmin
       .from('monitored_items')
-      .select('*')
+      .select('*, profiles!inner(monitoring_paused)')
       .eq('active', true)
+      .eq('profiles.monitoring_paused', false)
       .lte('next_check', new Date().toISOString())
       .order('next_check', { ascending: true })
       .limit(10); // Process in batches to avoid Vercel timeouts
