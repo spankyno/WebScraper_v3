@@ -5,6 +5,7 @@ export interface Profile {
   telegram_chat_id?: string;
   plan: Plan;
   extractions_count: number;
+  monitoring_paused?: boolean;
 }
 
 export interface MonitoredItem {
