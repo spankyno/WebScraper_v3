@@ -14,22 +14,36 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { data: items, error } = await supabaseAdmin
+    const { data: items, error: itemsError } = await supabaseAdmin
       .from('monitored_items')
-      .select('*, profiles(monitoring_paused)')
+      .select('*')
       .eq('active', true)
       .lte('next_check', new Date().toISOString())
       .order('next_check', { ascending: true })
-      .limit(10); // Process in batches to avoid Vercel timeouts
+      .limit(10);
 
-    if (error) throw error;
+    if (itemsError) throw itemsError;
+    if (!items || items.length === 0) return res.status(200).json({ checked: 0, alerts: 0 });
+
+    // Fetch pause status for these users separately to avoid join relationship errors
+    const userIds = [...new Set(items.map(i => i.user_id))];
+    const { data: profiles, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, monitoring_paused')
+      .in('id', userIds);
+
+    if (profileError) console.error('[Cron] Failed to fetch profiles, assuming not paused');
+    
+    const pausedUserIds = new Set(
+      profiles?.filter(p => p.monitoring_paused === true).map(p => p.id) || []
+    );
 
     let checked = 0;
     let alerts = 0;
 
     for (const item of items) {
       // Skip if the user has paused monitoring
-      if ((item.profiles as any)?.monitoring_paused === true) {
+      if (pausedUserIds.has(item.user_id)) {
         continue;
       }
 
