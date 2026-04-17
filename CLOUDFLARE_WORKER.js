@@ -43,11 +43,35 @@ export default {
     console.log('[Worker] Scheduled cron trigger');
     const vercelUrl = env.APP_URL;
     const cronSecret = env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.VITE_SUPABASE_URL;
 
     if (!vercelUrl || !cronSecret) {
       console.error('[Worker] APP_URL o SUPABASE_SERVICE_ROLE_KEY faltantes en los secretos del Worker');
       return;
     }
+
+    // --- NUEVO: Verificación de estado de pausa en Supabase ---
+    if (supabaseUrl) {
+      try {
+        const profileRes = await fetch(`${supabaseUrl}/rest/v1/profiles?monitoring_paused=eq.false&select=id&limit=1`, {
+          headers: {
+            'apikey': cronSecret,
+            'Authorization': `Bearer ${cronSecret}`
+          }
+        });
+        
+        if (profileRes.ok) {
+          const activeProfiles = await profileRes.json();
+          if (!activeProfiles || activeProfiles.length === 0) {
+            console.log('[Worker] Monitoreo pausado globalmente o no hay perfiles activos. Abortando ejecución.');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[Worker] No se pudo verificar el estado de pausa, procediendo por precaución:', err.message);
+      }
+    }
+    // ---------------------------------------------------------
 
     try {
       const res = await fetch(`${vercelUrl}/api/cron`, {
