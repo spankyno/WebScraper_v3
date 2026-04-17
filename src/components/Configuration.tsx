@@ -13,6 +13,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 
 export default function Configuration({ session }: { session: any }) {
   const [telegramId, setTelegramId] = useState('');
+  const [monitoringPaused, setMonitoringPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -30,11 +31,14 @@ export default function Configuration({ session }: { session: any }) {
         // Fetch Profile
         const { data: profile } = await supabase
           .from('profiles')
-          .select('telegram_chat_id')
+          .select('telegram_chat_id, monitoring_paused')
           .eq('id', session.user.id)
           .single();
 
-        if (profile) setTelegramId(profile.telegram_chat_id || '');
+        if (profile) {
+          setTelegramId(profile.telegram_chat_id || '');
+          setMonitoringPaused(!!profile.monitoring_paused);
+        }
 
         // Fetch Stats
         const { count: totalItems } = await supabase
@@ -118,7 +122,10 @@ export default function Configuration({ session }: { session: any }) {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ telegram_chat_id: telegramId })
+        .update({ 
+          telegram_chat_id: telegramId,
+          monitoring_paused: monitoringPaused 
+        })
         .eq('id', session.user.id);
 
       if (error) throw error;
@@ -167,6 +174,35 @@ export default function Configuration({ session }: { session: any }) {
 
   return (
     <div className="grid gap-6">
+      <Card className={`border-2 transition-all ${monitoringPaused ? 'bg-[#1A1D23] border-[#2D333B]' : 'bg-[#1A1D23] border-[#4F46E5]/30'}`}>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold block">Estado del Sistema</span>
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <Activity className={`h-5 w-5 ${monitoringPaused ? 'text-zinc-500' : 'text-[#4F46E5] animate-pulse'}`} />
+                {monitoringPaused ? 'Sistema Pausado' : 'Sistema Activo'}
+              </CardTitle>
+            </div>
+            <div className="flex items-center gap-3 bg-[#0F1115] px-4 py-2 rounded-xl border border-[#2D333B]">
+              <span className={`text-xs font-bold uppercase tracking-widest ${monitoringPaused ? 'text-[#8B949E]' : 'text-[#4F46E5]'}`}>
+                {monitoringPaused ? 'Inactivo' : 'Activo'}
+              </span>
+              <Switch
+                checked={!monitoringPaused}
+                onCheckedChange={(checked) => setMonitoringPaused(!checked)}
+                className="data-[state=checked]:bg-[#4F46E5]"
+              />
+            </div>
+          </div>
+          <CardDescription className="pt-2 text-[#8B949E]">
+            {monitoringPaused 
+              ? 'Las tareas de monitoreo están desactivadas. No se realizarán comprobaciones automáticas ni se enviarán alertas.' 
+              : 'El monitoreo está activo. Los precios se revisarán automáticamente según la frecuencia configurada.'}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
       <Card className="bg-[#1A1D23] border-[#2D333B]">
         <CardHeader>
           <span className="text-[10px] text-[#8B949E] uppercase tracking-wider font-semibold mb-2 block">Configuración</span>
