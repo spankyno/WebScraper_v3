@@ -23,3 +23,9 @@ A professional, full-stack price monitoring application built with **React**, **
 - **Activity Dashboard**: Visual 24h activity chart and user statistics.
 - **Anti-Bot Bypass**: Uses rotating fingerprints and proxy workers to overcome scraper blocks.
 - **Mobile Responsive**: Polished dark-mode UI optimized for all devices.
+
+## ✨ Cron de Cludflare
+
+- **Cron**: Proyecto vinculado con el worker de Cludflare web-scraper-proxy [https://dash.cloudflare.com/6f5636e3dec79c2be9b823f2b5aaf4b5/workers/services/view/web-scraper-proxy/production](https://dash.cloudflare.com/6f5636e3dec79c2be9b823f2b5aaf4b5/workers/services/view/web-scraper-proxy/production)
+- Necesario que tenga activo el evento de activación (trigger): Cron: */30 * * * *
+- 
