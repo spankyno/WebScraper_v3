@@ -4,6 +4,7 @@ CREATE TABLE profiles (
   telegram_chat_id TEXT,
   plan TEXT DEFAULT 'anonymous',
   extractions_count INTEGER DEFAULT 0,
+  monitoring_paused BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
