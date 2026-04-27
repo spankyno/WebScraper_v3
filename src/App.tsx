@@ -152,7 +152,7 @@ export default function App() {
                     <div className="space-y-3">
                       <h4 className="text-[10px] font-bold text-[#E6EDF3] uppercase tracking-wider">Recursos</h4>
                       <div className="flex flex-col gap-2">
-                        <a href="https://aitorblog.infinityfreeapp.com" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                        <a href="https://aitorsanchez.pages.dev/" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
                           <Globe className="h-3 w-3" />
                           Blog
                         </a>
