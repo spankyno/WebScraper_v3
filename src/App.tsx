@@ -143,7 +143,7 @@ export default function App() {
                           <LogOut className="h-3 w-3 rotate-180" />
                           Email
                         </a>
-                        <a href="https://aitor-blog-contacto.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
+                        <a href="https://aitorsanchez.pages.dev/contacto/" target="_blank" rel="noopener noreferrer" className="text-xs text-[#8B949E] hover:text-[#4F46E5] transition-colors flex items-center gap-2">
                           <User className="h-3 w-3" />
                           Contacto
                         </a>
