@@ -11,6 +11,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('extraction');
 
+  // Lógica de mantenimiento: Si VITE_IS_DISABLED es 'true', bloquea la app
+  if (import.meta.env.VITE_IS_DISABLED === 'true') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0F1115] text-[#E6EDF3] font-sans">
+        <div className="text-center p-8 border border-[#2D333B] rounded-xl bg-[#1A1D23] max-w-sm mx-4">
+          <Globe className="h-12 w-12 text-[#4F46E5] mx-auto mb-4" />
+          <h1 className="text-xl font-bold mb-2">Servicio en Mantenimiento</h1>
+          <p className="text-sm text-[#8B949E]">Estamos realizando tareas de mantenimiento. El servicio no está disponible temporalmente.</p>
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -184,4 +197,3 @@ export default function App() {
     </ThemeProviderAny>
   );
 }
-
